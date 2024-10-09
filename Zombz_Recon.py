@@ -1,14 +1,23 @@
 #!/bin/python
+import argparse
 import os
+import ipaddress
 import subprocess
 import socket
 import json
 import sys
 import shutil
-from urllib.parse import urlparse
+import functools
+import concurrent
+from urllib import parse
 from webbrowser import get
+from datetime import datetime
+from time import time, sleep
 
 actualDir = os.getenv('HOME')
+
+from modules import dnsdumpster
+from modules import shodan
 
 dns_dictionary = "/usr/share/seclists/Discovery/DNS/dns-Jhaddix.txt"
 dictionary = "/usr/share/seclists/Discovery/Web-Content/dirsearch.txt"
@@ -148,7 +157,7 @@ def passive_recon(domain):
 
         print(f"\n{BOLD}{GREEN}[+] Shodan Query {NORMAL}\n")
         print(f"{NORMAL}{CYAN}Collecting Organization Information from Shodan...{NORMAL}\n")
-        shodan_result = get(f"https://api.shodan.io/{domain}?key={{HjruM019eW15HXSJg9hyyimX8e1eqQ3Q}}").text
+        shodan_result = get(f"https://api.shodan.io/{domain}?key={{}}").text
         with open('shodan_org.txt', 'w') as f:
                 f.write(shodan_result)
         print(shodan_result)
@@ -222,20 +231,15 @@ def active_recon(domain):
 ##############################################
 ############### ALL MODES ####################
 ##############################################
-def all(domain):
+def full(domain):
 	passive_recon(domain)
 	active_recon(domain)
-	web_scanning(domain)
-##############################################
-############### ALL RECON ####################
-##############################################
-def all_recon():
-	passive_recon()
-	active_recon()
+	web(domain)
+
 ##############################################
 ############### Web Scanning ##############
 ##############################################
-def web_scanning(domain):
+def web(domain):
         print(f"\n{BOLD}{GREEN}[*] STARTING WEB SCAN{NORMAL}\n")
         print(f"{BOLD}{GREEN}[*] TARGET URL:{YELLOW} {domain} {NORMAL}\n")
 
@@ -274,105 +278,28 @@ def web_scanning(domain):
         # Change back to the original directory
         os.chdir('..')
 # Example usage
-# web_scanning("example.com")
-
-##############################################
-############### WILDCARD RECON ###############
-##############################################
-def wildcard_recon():
-        print(f"\n{BOLD}{GREEN}[*] STARTING SUBDOMAIN ENUMERATION{NORMAL}\n")
-        print(f"{BOLD}{GREEN}[*] WILDCARD:{YELLOW} *.wildcard {NORMAL}\n")
-
-        os.chdir('Pawns')
-
-        if os.path.isdir('subdomains'):
-            os.system("rm -Rf subdomains")
-        os.mkdir('Wildcard_Recon')
-        os.chdir('Wildcard_Recon')
-
-        print(f"\n{GREEN}[+] Subfinder {NORMAL}\n")
-        print(f"{NORMAL}{CYAN}Searching subdomains...{NORMAL}\n")
-        subprocess.run("subfinder -silent -d wildcard -o subdomains.txt", shell=True)
-
-        print(f"\n{GREEN}[+] Amass {NORMAL}\n")
-        print(f"{NORMAL}{CYAN}Searching subdomains with bruteforce...{NORMAL}\n")
-        dnsDictionary = "path/to/dnsDictionary.txt"  # Replace with actual path to dnsDictionary
-        subprocess.run(f"amass enum -d wildcard -w {dnsDictionary} -o bruteforce.txt", shell=True)
-        
-        with open("bruteforce.txt", "r") as bf_file:
-            with open("subdomains.txt", "a") as sub_file:
-                sub_file.write(bf_file.read())
-        
-        os.remove("bruteforce.txt")
-        subprocess.run("sort -u subdomains.txt -o subdomains.txt", shell=True)
-
-        print(f"\n{GREEN}[+] Httpx {NORMAL}\n")
-        print(f"{NORMAL}{CYAN}Checking alive subdomains...{NORMAL}\n")
-        subprocess.run("httpx -l subdomains.txt -silent -o alive.txt", shell=True)
-
-        # Removing http/https word from alive.txt
-        os.rename("alive.txt", "alive_subdomains.txt")
-        with open("alive_subdomains.txt", "r") as file:
-            lines = file.readlines()
-        
-        with open("alive_subdomains.txt", "w") as file:
-            for line in lines:
-                line = line.replace("http://", "").replace("https://", "").strip()
-                file.write(line + "\n")
-
-        subprocess.run("sort -u alive_subdomains.txt -o alive_subdomains.txt", shell=True)
-
-        with open("alive_subdomains.txt", "r") as file:
-            alive_domains = file.readlines()
-        
-        with open("alive.json", "w") as json_file:
-            json.dump({'domains': [domain.strip() for domain in alive_domains]}, json_file)
-
-        with open("subdomains.txt", "r") as file:
-            subdomains = file.readlines()
-
-        with open("subdomains.json", "w") as json_file:
-            json.dump({'domains': [domain.strip() for domain in subdomains]}, json_file)
-
-        subprocess.run("sed 's/ \\+/,/g' alive_subdomains.txt > alive.csv", shell=True)
-        subprocess.run("sed 's/ \\+/,/g' subdomains.txt > subdomains.csv", shell=True)
-
-        mode = "more"
-
-        with open("alive_subdomains.txt", "r") as file:
-            for domain in file:
-                domain = domain.strip()
-                # Assuming 'all' is a function that needs to be called with domain and mode
-                all(domain, mode)
-
-        os.chdir('actualDir')
-
-def all(domain, mode):
-    # Implement the logic for the 'all' function here
-    print(f"Processing domain: {domain} with mode: {mode}")
+# web("example.com")
 
 ##############################################
 ############### HELP SECTION #################
 ##############################################
-def help():
-    print(f"\n{BOLD}{GREEN}USAGE{NORMAL} [-d domain.com] [-w domain.com] [-l Target_list.txt] [-a] [-p] [-x] [-r] [-ws] [-m] [-n] [-h]\n")
-    print(f"{BOLD}{GREEN}TARGET OPTIONS{NORMAL} [-d domain.com] [-w Wildcard domain] [-l Target_list.txt]\n")
-    print(f"{BOLD}{GREEN}MODE OPTIONS:{NORMAL}-a, --all All mode - Full scan with full target recognition and vulnerability scanning\n")
-    print(f"{BOLD}{GREEN}MODE OPTIONS:{NORMAL}-p, --passive Passive reconnaissance (Footprinting) - Performs only passive recon with multiple tools\n")
-    print(f"{BOLD}{GREEN}MODE OPTIONS:{NORMAL}-x, --active Active reconnaissance (Fingerprinting) - Performs only active recon with multiple tools\n")
-    print(f"{BOLD}{GREEN}MODE OPTIONS:{NORMAL}-r, --recon Reconnaissance - Perform active and passive reconnaissance\n")
-    print(f"{BOLD}{GREEN}MODE OPTIONS:{NORMAL}-ws, --web_scan Web Scanning - Check multiple vulnerabilities in the domain/list domains\n")
-    print(f"{BOLD}{GREEN}EXTRA OPTIONS:{NORMAL}-h, --help\n")
-    print(f"{BOLD}{GREEN}EXAMPLES{NORMAL}{CYAN}All:{NORMAL} ./Zombz_Recon.py -d domain.com -a\n")
-    print(f"{CYAN}Passive reconnaissance to a list of domains:{NORMAL} ./Zombz_Recon.py -l domainlist.txt -p\n")
-    print(f"{CYAN}Active reconnaissance to a domain:{NORMAL} ./Zombz_Recon.py -d domain.com -x\n")
-    print(f"{CYAN}Full reconnaissance:{NORMAL} ./Zombz_Recon.py -d domain.com -r\n")
-    print(f"{CYAN}Full reconnaissance and web scanning:{NORMAL} ./Zombz_Recon.py -d domain.com -r -ws\n")
-    print(f"{CYAN}Full reconnaissance and vulnerabilities scanning to a wildcard:{NORMAL} ./Zombz_Recon.py -w domain.com \n")
-
 def usage():
-    print(f"\nUsage: python script.py [-d domain.com] [-w domain.com] [-l listdomains.txt] [-a] [-p] [-x] [-r] [-ws] [-m] [-n] [-h]\n")
-    sys.exit(2)
+    global args
+
+    parser = argparse.ArgumentParser (
+    parser.add_argument (f"\n{BOLD}{GREEN}USAGE{NORMAL} [-d domain.com] [-l Target_list.txt] [-f] [-p] [-a] [-w] [-h]\n"))
+    parser.add_argument (f"{BOLD}{GREEN}TARGET OPTIONS{NORMAL} [-d domain.com] [-l Target_list.txt]\n")
+    parser.add_argument (f"{BOLD}{GREEN}MODE OPTIONS:{NORMAL}-f, --full reconnaissance - Full scan with full target recognition and vulnerability scanning\n")
+    parser.add_argument (f"{BOLD}{GREEN}MODE OPTIONS:{NORMAL}-p, --passive Passive reconnaissance (Footprinting) - Performs only passive recon with multiple tools\n")
+    parser.add_argument (f"{BOLD}{GREEN}MODE OPTIONS:{NORMAL}-a, --active Active reconnaissance (Fingerprinting) - Performs only active recon with multiple tools\n")
+    parser.add_argument (f"{BOLD}{GREEN}MODE OPTIONS:{NORMAL}-w, --web Web Scanning - Check multiple vulnerabilities in the domain/list domains\n")
+    parser.add_argument (f"{BOLD}{GREEN}EXTRA OPTIONS:{NORMAL}-h, --help\n")
+    parser.add_argument (f"{BOLD}{GREEN}EXAMPLES{NORMAL}{CYAN}Full reconnaissance:{NORMAL} ./Zombz_Recon.py -d domain.com -f\n")
+    parser.add_argument (f"{CYAN}Passive reconnaissance to a list of domains:{NORMAL} ./Zombz_Recon.py -l targetList.txt -p\n")
+    parser.add_argument (f"{CYAN}Active reconnaissance to a domain:{NORMAL} ./Zombz_Recon.py -d domain.com -a\n")
+    parser.add_argument (f"{CYAN}Full reconnaissance and web scanning:{NORMAL} ./Zombz_Recon.py -d domain.com -f -w\n")
+args = parser.parse_args()
+sys.exit(2)
 
 def print_banner():
     print(f"{BOLD}{GREEN}")
@@ -380,10 +307,9 @@ def print_banner():
     print(f"{BOLD}{MAGENTA}They locked down their fortress - with locks!")
     print(f"\n")
 
-def parse_arguments(args):
+def parse_target(args):
     domain = None
-    wildcard = None
-    domainList = None
+    targetList = None
     mode_recon = 0
 
     if len(args) == 0:
@@ -395,26 +321,20 @@ def parse_arguments(args):
         if args[i] in ['-d', '--domain']:
             domain = args[i + 1]
             i += 2
-        elif args[i] in ['-w', '--wildcard']:
-            wildcard = args[i + 1]
-            i += 2
         elif args[i] in ['-l', '--list']:
-            domainList = args[i + 1]
+            targetList = args[i + 1]
             i += 2
-        elif args[i] in ['-a', '--all']:
+        elif args[i] in ['-f', '--full']:
             mode_recon = 1
             i += 1
         elif args[i] in ['-p', '--passive']:
             mode_recon = 2
             i += 1
-        elif args[i] in ['-x', '--active']:
+        elif args[i] in ['-a', '--active']:
             mode_recon = 3
             i += 1
-        elif args[i] in ['-r', '--recon']:
+        elif args[i] in ['-w', '--web']:
             mode_recon = 4
-            i += 1
-        elif args[i] in ['-ws', '--web_scan']:
-            mode_recon = 5
             i += 1
         elif args[i] in ['-h', '--help']:
             usage()
@@ -422,52 +342,48 @@ def parse_arguments(args):
             print(f"{RED}[!] Unexpected option: {args[i]} - this should not happen. \n{NORMAL}")
             usage()
 
-    return domain, wildcard, domainList, mode_recon, vulnerabilitiesMode
+    return domain, targetList, mode_recon, vulnerabilitiesMode
 
 def main(args):
     print_banner()
     
-    domain, wildcard, domainList, mode_recon, vulnerabilitiesMode = parse_arguments(args)
+    domain, targetList, mode_recon, vulnerabilitiesMode = parse_arguments(args)
 
-    if domain is None and wildcard is None and domainList is None:
-        print(f"{RED}[!] Please specify a domain (-d | --domain), a wildcard (-w | --wildcard) or a list of domains (-l | --list) \n{NORMAL}")
+    if domain is None and targetList is None:
+        print(f"{RED}[!] Please specify a domain (-d | --domain) or a list of targets (-l | --list) \n{NORMAL}")
         sys.exit(1)
 
     if not os.path.exists('Pawns'):
         os.mkdir('Pawns')
 
-    if wildcard and mode_recon != 5:
-        wildcard_recon(wildcard)
-        sys.exit(1)
-
     if mode_recon == 1:
-        if domainList is None:
-            all(domain)
+        if targetList is None:
+            full(domain)
         else:
-            with open(domainList, 'r') as f:
+            with open(targetList, 'f') as f:
                 for domain in f:
-                    all(domain.strip())
+                    full(domain.strip())
     elif mode_recon == 2:
-        if domainList is None:
+        if targetList is None:
             passive_recon(domain)
         else:
-            with open(domainList, 'r') as f:
+            with open(targetList, 'f') as f:
                 for domain in f:
                     passive_recon(domain.strip())
     elif mode_recon == 3:
-        if domainList is None:
+        if targetList is None:
             active_recon(domain)
         else:
-            with open(domainList, 'r') as f:
+            with open(targetList, 'f') as f:
                 for domain in f:
                     active_recon(domain.strip())
     elif mode_recon == 4:
-        if domainList is None:
-            all_recon(domain)
+        if targetList is None:
+            web(domain)
         else:
-            with open(domainList, 'r') as f:
+            with open(targetList, 'f') as f:
                 for domain in f:
-                    all_recon(domain.strip())
+                    web(domain.strip())
     else:
         usage()
 

@@ -14,18 +14,16 @@ Utilize Clients email address (domain) to lookup
 
 ## Client Website Investigation
 
-Contact Info,
-Organizational Charts,
-Relevant Individuals (Customers/Partner)
+- Contact Info
+- Organizational Charts
+- Relevant Individuals (Customers/Partner)
 
 ## Social Media Scraping
-Linkedin,
-Career Builder
+- Linkedin
+- Career Builder
 
 ## DNS Dumpster Website
-Provides Subdomain Information and External Network Map.
-
-  https://dnsdumpster.com
+Provides Subdomain Information and External Network Map. (https://dnsdumpster.com)
 
 ## Shodan
 Go to the Shodan website (https://www.shodan.io/ ) or locate it in a search engine.

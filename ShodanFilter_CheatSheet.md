@@ -7,24 +7,32 @@
   |                |  ntp.port    |                  |               | telnet.will   
   |                |              |                  |               | telnet.wont |
 
-|     General     |    SSL        |   SSL        |
+|     General     |    SSL        |   HTTP      |
 | ------------- | ------------- | ------------- |
-| all  | Content Cell  | Content Cell  |
-| asn| ------------- | ------------- |
-| city | Content Cell  | Content Cell  |
-| country  | Content Cell  | Content Cell  |
-| cpe | ------------- | Content Cell  |
-| device  | Content Cell  | Content Cell  |
-| geo  | Content Cell  | Content Cell  |
-| has_ipv6  |
-| has_screenshot   |
-| has_ssl   |
-| has_vuln   |
-| hash |
-| Content Cell  |
-| Content Cell  |
-| Content Cell  |
-| Content Cell  |
-| Content Cell  |
-| Content Cell  |
-| Content Cell  |
+| all  | ssl | http.component  |
+| asn| ssl.alpn | http.component_category  |
+| city |ssl.cert.alg | http.favicon.hash  |
+| country  | ssl.cert.expired  | http.html   |
+| cpe | ssl.cert.extension  | http.html_hash  |
+| device  | ssl.cert.fingerprint   | http.robots_hash  |
+| geo  | ssl.cert.issuer.cn  | http.securitytxt  |
+| has_ipv6  |ssl.cert.pubkey.bits  | http.status |
+| has_screenshot   | ssl.cert.pubkey.type | http.title |
+| has_ssl   | ssl.cert.serial  | http.waf |
+| has_vuln   | ssl.cert.subject.cn 
+| hash | ssl.chain_count 
+| hostname  | ssl.cipher.bits 
+| ip | ssl.cipher.name 
+| isp | ssl.cipher.version 
+| link | ssl.ja3s 
+| net  | ssl.jarm 
+| org | ssl.version 
+| os |
+| port|
+|postal|
+|product|
+|region|
+|scan|
+|shodan.module|
+|state|
+|version|

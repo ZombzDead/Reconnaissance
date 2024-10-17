@@ -1,9 +1,11 @@
 #!/bin/python
 import argparse
+from operator import add
 import os
 import ipaddress
 import subprocess
 import socket
+import signal
 import json
 import sys
 import shutil
@@ -13,29 +15,93 @@ from urllib import parse
 from webbrowser import get
 from datetime import datetime
 from time import time, sleep
+import concurrent
+from concurrent.futures import ThreadPoolExecutor
 
-actualDir = os.getenv('HOME')
+
+import requests
+from netaddr import IPNetwork
 
 from modules import dnsdumpster
 from modules import shodan
 
+actualDir = os.getenv('HOME')
+
 dns_dictionary = "/usr/share/seclists/Discovery/DNS/dns-Jhaddix.txt"
 dictionary = "/usr/share/seclists/Discovery/Web-Content/dirsearch.txt"
 exclude_status = "404,403,401,503"
-burp_collaborator = "https://recon.bc.nhbrsec.com"
 
-def ip_address():
-    try:
-        domain = socket.gethostname()
-        ip_address = socket.gethostbyname(domain)
-        print("Domain : ",domain)
-        print("IP : ",ip_address)
-        return ip_address
-    except:
-        print("Unable to get Domain and IP addresses")
+class TargetIP:
+    def __init__(self, addr):
+        self.address = addr
+        self.hostname = []
+        self.ports = []
+        self.asn = ""
+        self.asn_name = ""
+        self.whois = []
+        self.server = ""
+        self.vulns = []
+        self.cidr = ""
+        self.location = ""
+        self.country = ""
+
+class Target:
+    def __init__(self):
+        self.primary_domain = ""
+        self.subdomains = []
+        self.orgName = ""
+        self.dnsrecords = []
+        self.buckets = []
+        self.mx = None
+        self.spf = None
+        self.dmarc = []
+        self.dmarc_status = ""
+        self.emails = []
+        self.guessed_emails = []
+        self.creds = []
+        self.hashes = []
+        self.breaches = {}
+        self.employees = []
+        self.pattern = "{f}{last}"  # Default Email Pattern
+        self.urls = []
+        self.ipv4 = False
+        self.resolved_ips = []
+
+class MasterSwitch:
+    def __init__(self):
+        self.shodan = True
+        self.dnsdumpster = True
+        self.screencshot = True
+        self.webscraper = True
+        self.stealth = False
+        self.verbose = False
+
+def target_domain(list_domain, input_domain):
+     input_domain = input_domain.replace("\n","")
+     if not input_domain:
+        return 0
+     if (input_domain):
+          if ipaddress.ip_address(input_domain):
+               print(input_domain)
+    
+def target_ip_address(target_list, IP):
+    tmp = TargetIP(IP)
+
+    if ipaddress.ip_address(IP).is_private:
+        return 0
+    
+    for keys in target_list.keys():
+         for x in target_list[keys].resolved_ips:
+              if(IP == x.address):
+                   print("info", (IP),1)
+                   return 0
+    if domain:
+        domain = socket.gethostname(IP)
+        try:
+            target_list[domain].resolved_ips.append(tmp)
+        except: print("Unable to get Domain")
         return None
-ip_address()
-
+    
 #COLORS
 RED = "\033[31m"
 GREEN = "\033[1;32m"
@@ -56,7 +122,7 @@ def passive_recon(domain):
         print(f"{BOLD}{GREEN}[*] STARTING FOOTPRINTING{NORMAL}\n")
         print(f"{BOLD}{GREEN}[*] TARGET URL:{YELLOW} {domain} {NORMAL}\n")
             
-        print(f"{BOLD}{GREEN}[*] TARGET IP ADDRESS:\n {YELLOW} {ip_address} {NORMAL}\n")
+        print(f"{BOLD}{GREEN}[*] TARGET IP ADDRESS:\n {YELLOW} {target_ip_address} {NORMAL}\n")
         
 #        company = {domain}.split('.')[0]
             
@@ -195,7 +261,7 @@ def active_recon(domain):
         print(f"{BOLD}{GREEN}[*] TARGET URL:{YELLOW} {domain} {NORMAL}\n")
         
         # Get IP address using DNS lookup
-        print(f"{BOLD}{GREEN}[*] TARGET IP ADDRESS:{YELLOW} {ip_address} {NORMAL}\n")
+        print(f"{BOLD}{GREEN}[*] TARGET IP ADDRESS:{YELLOW} {target_ip_address} {NORMAL}\n")
         
         # Change to Pawns Directory
         os.chdir('Pawns')
@@ -277,15 +343,12 @@ def web(domain):
 
         # Change back to the original directory
         os.chdir('..')
-# Example usage
-# web("example.com")
 
 ##############################################
 ############### HELP SECTION #################
 ##############################################
 def usage():
     global args
-
     parser = argparse.ArgumentParser (
     parser.add_argument (f"\n{BOLD}{GREEN}USAGE{NORMAL} [-d domain.com] [-l Target_list.txt] [-f] [-p] [-a] [-w] [-h]\n"))
     parser.add_argument (f"{BOLD}{GREEN}TARGET OPTIONS{NORMAL} [-d domain.com] [-l Target_list.txt]\n")
@@ -298,7 +361,7 @@ def usage():
     parser.add_argument (f"{CYAN}Passive reconnaissance to a list of domains:{NORMAL} ./Zombz_Recon.py -l targetList.txt -p\n")
     parser.add_argument (f"{CYAN}Active reconnaissance to a domain:{NORMAL} ./Zombz_Recon.py -d domain.com -a\n")
     parser.add_argument (f"{CYAN}Full reconnaissance and web scanning:{NORMAL} ./Zombz_Recon.py -d domain.com -f -w\n")
-args = parser.parse_args()
+args = parse.parse_args()
 sys.exit(2)
 
 def print_banner():
@@ -307,9 +370,10 @@ def print_banner():
     print(f"{BOLD}{MAGENTA}They locked down their fortress - with locks!")
     print(f"\n")
 
-def parse_target(args):
+def parse_arguments(args):
     domain = None
-    targetList = None
+    target = ()
+    target_list = None
     mode_recon = 0
 
     if len(args) == 0:
@@ -318,11 +382,14 @@ def parse_target(args):
 
     i = 0
     while i < len(args):
-        if args[i] in ['-d', '--domain']:
+        if args[i] in [ '-t', '--target']:
+            target = args[i + 1]
+            i += 2
+        elif args[i] in ['-d', '--domain']:
             domain = args[i + 1]
             i += 2
         elif args[i] in ['-l', '--list']:
-            targetList = args[i + 1]
+            target_list = args[i + 1]
             i += 2
         elif args[i] in ['-f', '--full']:
             mode_recon = 1
@@ -342,14 +409,13 @@ def parse_target(args):
             print(f"{RED}[!] Unexpected option: {args[i]} - this should not happen. \n{NORMAL}")
             usage()
 
-    return domain, targetList, mode_recon, vulnerabilitiesMode
+    return target, domain, target_list, mode_recon
 
 def main(args):
     print_banner()
-    
-    domain, targetList, mode_recon, vulnerabilitiesMode = parse_arguments(args)
+    target, target_list, domain, mode_recon = parse_arguments(args)
 
-    if domain is None and targetList is None:
+    if domain is None and target_list is None:
         print(f"{RED}[!] Please specify a domain (-d | --domain) or a list of targets (-l | --list) \n{NORMAL}")
         sys.exit(1)
 
@@ -357,31 +423,31 @@ def main(args):
         os.mkdir('Pawns')
 
     if mode_recon == 1:
-        if targetList is None:
+        if target_list is None:
             full(domain)
         else:
-            with open(targetList, 'f') as f:
+            with open(target_list, 'f') as f:
                 for domain in f:
                     full(domain.strip())
     elif mode_recon == 2:
-        if targetList is None:
+        if target_list is None:
             passive_recon(domain)
         else:
-            with open(targetList, 'f') as f:
+            with open(target_list, 'f') as f:
                 for domain in f:
                     passive_recon(domain.strip())
     elif mode_recon == 3:
-        if targetList is None:
+        if target_list is None:
             active_recon(domain)
         else:
-            with open(targetList, 'f') as f:
+            with open(target_list, 'f') as f:
                 for domain in f:
                     active_recon(domain.strip())
     elif mode_recon == 4:
-        if targetList is None:
+        if target_list is None:
             web(domain)
         else:
-            with open(targetList, 'f') as f:
+            with open(target_list, 'f') as f:
                 for domain in f:
                     web(domain.strip())
     else:

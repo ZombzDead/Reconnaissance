@@ -9,7 +9,7 @@ selenium>=3.141.0
 html2text 
 arjun 
 nuclei 
-cmseek 
+cmseek>=1.1.3-0kali2
 hakrawler 
 dirsearch
 trufflehog

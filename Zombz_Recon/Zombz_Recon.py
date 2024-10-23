@@ -1,35 +1,21 @@
 #!/bin/python
-import argparse
-from operator import add
+from curses import echo
 import os
 import ipaddress
 import subprocess
 import socket
-import signal
-import json
 import sys
 import shutil
-import functools
-import concurrent
-from urllib import parse
 from webbrowser import get
-from datetime import datetime
-from time import time, sleep
-import concurrent
-from concurrent.futures import ThreadPoolExecutor
 
 
-import requests
-from netaddr import IPNetwork
 
-from modules import dnsdumpster
-from modules import shodan
-
-actualDir = os.getenv('HOME')
-
+INSTALL_DIR="/usr/share/Zombz_Recon"
+LOOT_DIR="$INSTALL_DIR/Pawns/"
 dns_dictionary = "/usr/share/seclists/Discovery/DNS/dns-Jhaddix.txt"
 dictionary = "/usr/share/seclists/Discovery/Web-Content/dirsearch.txt"
 exclude_status = "404,403,401,503"
+
 
 class TargetIP:
     def __init__(self, addr):
@@ -76,7 +62,7 @@ class MasterSwitch:
         self.stealth = False
         self.verbose = False
 
-def target_domain(list_domain, input_domain):
+def target_domain(input_domain):
      input_domain = input_domain.replace("\n","")
      if not input_domain:
         return 0
@@ -112,19 +98,14 @@ CYAN = "\033[36m"
 BOLD = "\033[1m"
 NORMAL = "\033[0m"
 
-#os.mkdir('Pawns')
-
 ##############################################
 ############### PASSIVE RECON ################
 ##############################################
 def passive_recon(domain):
         print("\n")
         print(f"{BOLD}{GREEN}[*] STARTING FOOTPRINTING{NORMAL}\n")
-        print(f"{BOLD}{GREEN}[*] TARGET URL:{YELLOW} {domain} {NORMAL}\n")
-            
+        print(f"{BOLD}{GREEN}[*] TARGET URL:{YELLOW} {domain} {NORMAL}\n")   
         print(f"{BOLD}{GREEN}[*] TARGET IP ADDRESS:\n {YELLOW} {target_ip_address} {NORMAL}\n")
-        
-#        company = {domain}.split('.')[0]
             
         os.chdir('Pawns')
 
@@ -347,22 +328,22 @@ def web(domain):
 ##############################################
 ############### HELP SECTION #################
 ##############################################
+def help ():
+    print(f"\n{BOLD}{GREEN}USAGE{NORMAL} [-d domain.com] [-l Target_list.txt] [-f] [-p] [-a] [-w] [-h]\n")
+    print(f"{BOLD}{GREEN}TARGET OPTIONS{NORMAL} [-d domain.com] [-l Target_list.txt]\n")
+    print(f"{BOLD}{GREEN}MODE OPTIONS:{NORMAL}-f, --full reconnaissance - Full scan with full target recognition and vulnerability scanning\n")
+    print(f"{BOLD}{GREEN}MODE OPTIONS:{NORMAL}-p, --passive Passive reconnaissance (Footprinting) - Performs only passive recon with multiple tools\n")
+    print(f"{BOLD}{GREEN}MODE OPTIONS:{NORMAL}-a, --active Active reconnaissance (Fingerprinting) - Performs only active recon with multiple tools\n")
+    print(f"{BOLD}{GREEN}MODE OPTIONS:{NORMAL}-w, --web Web Scanning - Check multiple vulnerabilities in the domain/list domains\n")
+    print(f"{BOLD}{GREEN}EXTRA OPTIONS:{NORMAL}-h, --help\n")
+    print(f"{BOLD}{GREEN}EXAMPLES{NORMAL}{CYAN}Full reconnaissance:{NORMAL} ./Zombz_Recon.py -d domain.com -f\n")
+    print(f"{CYAN}Passive reconnaissance to a list of domains:{NORMAL} ./Zombz_Recon.py -l targetList.txt -p\n")
+    print(f"{CYAN}Active reconnaissance to a domain:{NORMAL} ./Zombz_Recon.py -d domain.com -a\n")
+    print(f"{CYAN}Full reconnaissance and web scanning:{NORMAL} ./Zombz_Recon.py -d domain.com -f -w\n")
+
 def usage():
-    global args
-    parser = argparse.ArgumentParser (
-    parser.add_argument (f"\n{BOLD}{GREEN}USAGE{NORMAL} [-d domain.com] [-l Target_list.txt] [-f] [-p] [-a] [-w] [-h]\n"))
-    parser.add_argument (f"{BOLD}{GREEN}TARGET OPTIONS{NORMAL} [-d domain.com] [-l Target_list.txt]\n")
-    parser.add_argument (f"{BOLD}{GREEN}MODE OPTIONS:{NORMAL}-f, --full reconnaissance - Full scan with full target recognition and vulnerability scanning\n")
-    parser.add_argument (f"{BOLD}{GREEN}MODE OPTIONS:{NORMAL}-p, --passive Passive reconnaissance (Footprinting) - Performs only passive recon with multiple tools\n")
-    parser.add_argument (f"{BOLD}{GREEN}MODE OPTIONS:{NORMAL}-a, --active Active reconnaissance (Fingerprinting) - Performs only active recon with multiple tools\n")
-    parser.add_argument (f"{BOLD}{GREEN}MODE OPTIONS:{NORMAL}-w, --web Web Scanning - Check multiple vulnerabilities in the domain/list domains\n")
-    parser.add_argument (f"{BOLD}{GREEN}EXTRA OPTIONS:{NORMAL}-h, --help\n")
-    parser.add_argument (f"{BOLD}{GREEN}EXAMPLES{NORMAL}{CYAN}Full reconnaissance:{NORMAL} ./Zombz_Recon.py -d domain.com -f\n")
-    parser.add_argument (f"{CYAN}Passive reconnaissance to a list of domains:{NORMAL} ./Zombz_Recon.py -l targetList.txt -p\n")
-    parser.add_argument (f"{CYAN}Active reconnaissance to a domain:{NORMAL} ./Zombz_Recon.py -d domain.com -a\n")
-    parser.add_argument (f"{CYAN}Full reconnaissance and web scanning:{NORMAL} ./Zombz_Recon.py -d domain.com -f -w\n")
-args = parse.parse_args()
-sys.exit(2)
+    print(f"\nUsage: python Zombz_Recon.py [-t target] [-d domain] [-l target_list.txt] [-f] [-p] [-a] [-w] [-h]\n")
+    sys.exit(2)
 
 def print_banner():
     print(f"{BOLD}{GREEN}")
@@ -372,7 +353,7 @@ def print_banner():
 
 def parse_arguments(args):
     domain = None
-    target = ()
+    target = None
     target_list = None
     mode_recon = 0
 
@@ -415,36 +396,36 @@ def main(args):
     print_banner()
     target, target_list, domain, mode_recon = parse_arguments(args)
 
-    if domain is None and target_list is None:
-        print(f"{RED}[!] Please specify a domain (-d | --domain) or a list of targets (-l | --list) \n{NORMAL}")
+    if target is None and domain is None and target_list is None:
+        print(f"{RED}[!] Please specify a target (-t), a domain (-d | --domain), or a list of targets (-l | --list) \n{NORMAL}")
         sys.exit(1)
 
     if not os.path.exists('Pawns'):
         os.mkdir('Pawns')
 
     if mode_recon == 1:
-        if target_list is None:
+        if target_list is None and target is None:
             full(domain)
         else:
             with open(target_list, 'f') as f:
                 for domain in f:
                     full(domain.strip())
     elif mode_recon == 2:
-        if target_list is None:
+        if target_list is None and target is None:
             passive_recon(domain)
         else:
             with open(target_list, 'f') as f:
                 for domain in f:
                     passive_recon(domain.strip())
     elif mode_recon == 3:
-        if target_list is None:
+        if target_list is None and target is None:
             active_recon(domain)
         else:
             with open(target_list, 'f') as f:
                 for domain in f:
                     active_recon(domain.strip())
     elif mode_recon == 4:
-        if target_list is None:
+        if target_list is None and target is None:
             web(domain)
         else:
             with open(target_list, 'f') as f:

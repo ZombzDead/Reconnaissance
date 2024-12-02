@@ -92,7 +92,7 @@ passive_recon(){
 	
 	printf "\n${BOLD}${GREEN}[+] Shodan Query ${NORMAL}\n"
 	printf "${NORMAL}${CYAN}Collecting Organization Information from Shodan...${NORMAL}\n\n"
-	curl -X GET "https://api.shodan.io/$domain?key={HjruM019eW15HXSJg9hyyimX8e1eqQ3Q}" > shodan_org.txt
+	curl -X GET "https://api.shodan.io/$domain?key={Input_key}" > shodan_org.txt
 
 	printf "\n${BOLD}${GREEN}[+] TheHarvester ${NORMAL}\n"
 	printf "${NORMAL}${CYAN}Searching emails, subdomains, hosts, employee names...${NORMAL}\n\n"

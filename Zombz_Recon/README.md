@@ -1,4 +1,4 @@
-# Zombz_Recon v2.0 - All-in-One Reconnaissance Tool
+# Zombz Recon v2.0 - All-in-One Reconnaissance Tool
 
 ### usage: 
 

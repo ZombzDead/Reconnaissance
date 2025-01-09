@@ -1,6 +1,0 @@
-virustotal = ""
-hunterio = ""
-shodan = ""
-grayhatwarfare = ""
-censys_id = ""
-censys_secret = ""
